@@ -93,6 +93,7 @@ namespace YAMLEdit {
 
 		public void Set(string path, object value)
 		{
+			path = path.TrimEnd(':');
 			YamlNode rootNode = yaml.RootNode;
 			if (rootNode == null)
 				return;
@@ -105,7 +106,7 @@ namespace YAMLEdit {
 				{
 					rootNode = rootNode.CreateKey(keys[index]);
 				}
-				else if (newNode.IsScalarNode())
+				else if (newNode is YamlScalarNode)
 				{
 					YamlScalarNode scalarNode = newNode as YamlScalarNode;
 					rootNode.Remove(keys[index]);
@@ -117,14 +118,34 @@ namespace YAMLEdit {
 				}
 			}
 			YamlNode tempNode = rootNode.NodeByKey(keys[keys.Length - 1]);
-			if (tempNode != null && tempNode.IsScalarNode() && value != null)
-			{
-				(tempNode as YamlScalarNode).Value = value.ToString();
-				return;
-			}
 			if (value == null)
 			{
 				rootNode.Remove(keys[keys.Length - 1]);
+				return;
+			}
+			if (tempNode != null)
+			{
+				if (rootNode is YamlSequenceNode tempSequenceNode)
+				{
+					tempSequenceNode.Put(YamlPath.GetIndexByKey(keys[keys.Length - 1]).ToString(), value);
+					return;
+				}
+				if (tempNode is YamlScalarNode tempScalardNode)
+				{
+					tempScalardNode.Value = value.ToString();
+					return;
+				}
+				else if (tempNode is YamlSequenceNode)
+				{
+					rootNode.Put(keys[keys.Length - 1], value);
+					return;
+				}
+				else
+				{
+					rootNode.CreateKey(keys[keys.Length - 1]);
+					rootNode.Put(keys[keys.Length - 1], value);
+					return;
+				}
 			}
 			else
 			{
