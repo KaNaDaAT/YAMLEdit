@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "YAMLEdit": {
+      "commandName": "Project"
+    },
+    "Test": {
+      "commandName": "Project"
+    }
+  }
+}
