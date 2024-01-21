@@ -13,25 +13,16 @@ YAMLEdit is a lightweight library designed to simplify the reading and editing o
 - **Effortless Saving**: Save your changes back to the YAML file with a single command.
 
 ## Getting Started
+UNDER DEVELOPMENT
 
-1. Install the YAMLEdit NuGet package in your C<mark>#</mark> project.
-   
-   ```bash
-   dotnet add package YAMLEdit
-   ```
-
-2. Import the YAMLEdit namespace in your C# file.
-
-3. Start using the library in your code.
-   
-   ```c#
-   ConfigFile config = new ConfigFile(pathToYaml);
-   config.Set("Persons.1.Name", "KaNaDaAT");
-   config.Set("Persons.1.Age", 21);
-   config.Set("Persons.1.Age", 22); // Overwrite the value
-   int age = config.Get<int>("Persons.1.Age"); // 22
-   config.Save(); // actually writes the data
-   ```
+```c#
+ConfigFile config = new ConfigFile(pathToYaml);
+config.Set("Persons.1.Name", "KaNaDaAT");
+config.Set("Persons.1.Age", 21);
+config.Set("Persons.1.Age", 22); // Overwrite the value
+int age = config.Get<int>("Persons.1.Age"); // 22
+config.Save(); // actually writes the data
+```
 
 ## Paths/Keys
 
