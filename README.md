@@ -42,6 +42,15 @@ In YAMLEdit, paths are used to navigate through the YAML structure and access sp
 
 YAMLEdit is case-sensitive when it comes to key matching. Ensure that the keys specified in the path exactly match the casing used in the YAML file. For example, `Rooms.special` and `Rooms.Special` would refer to different nodes.
 
+### Setting and Removing
+
+`Set` resolves paths with the same rules as `GetNode`. Values are written with YamlDotNet's serializer, so lists and objects become YAML structures and numbers are written culture-invariant (`3.5`, never `3,5`).
+
+- **Existing nodes** are replaced in place, whatever their type, and keep their position.
+- **Missing nodes along the path** are created as a sequence if the next key is `:N` or `:N:` (or the key itself is `:N:`), and as a mapping otherwise. A scalar along the path is replaced the same way; a sequence item matched by name, like `- ROOM0`, becomes `- ROOM0: ...`.
+- **Missing sequence items** are appended. A name is appended as `- Name: value`, so the same path finds it again.
+- **`Set(path, null)`** removes the node. For a list item matched by its first key, that key is removed, and the item too once it is empty. A path that doesn't exist is left alone.
+
 ## Examples
 
 ### **Example 1: Reading YAML File**
@@ -120,7 +129,7 @@ Console.WriteLine(config.GetNode("Rooms.Special.:0"));
 Console.WriteLine(config.GetNode("Rooms.Special.:1"));
 // Output: [ DEEP0, DEEP1 ]
 Console.WriteLine(config.GetNode("Rooms.Special.:2"));
-// Output: NORMAL2
+// Output: NORMAL1
 ```
 
 **Accessing deep sequences**
@@ -180,3 +189,5 @@ Rooms:
 ## Contribution
 
 Feel free to contribute to the development of YAMLEdit. For bug reports, feature requests, or other contributions, please open an issue or submit a pull request
+
+Run the tests with `dotnet test YAMLEdit.sln`.

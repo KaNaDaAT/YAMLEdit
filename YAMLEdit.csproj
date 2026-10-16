@@ -4,6 +4,8 @@
 		<OutputType>Library</OutputType>
 		<TargetFramework>net6.0</TargetFramework>
 		<LangVersion>10</LangVersion>
+		<!-- The test project lives inside this folder; keep its sources out of the library. -->
+		<DefaultItemExcludes>$(DefaultItemExcludes);YAMLTest/**</DefaultItemExcludes>
 	</PropertyGroup>
   <ItemGroup>
     <PackageReference Include="YamlDotNet" Version="11.0.1" />

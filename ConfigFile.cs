@@ -91,67 +91,30 @@ namespace YAMLEdit {
 			);
 		}
 
+		// Sets the node at path to value, or removes it when value is null. Keys resolve as in GetNode.
 		public void Set(string path, object value)
 		{
-			path = path.TrimEnd(':');
 			YamlNode rootNode = yaml.RootNode;
 			if (rootNode == null)
 				return;
 			string[] keys = path.Split('.');
-			int index = 0;
-			for (index = 0; index < keys.Length - 1; index++)
+			for (int index = 0; index < keys.Length - 1; index++)
 			{
 				YamlNode newNode = rootNode.NodeByKey(keys[index]);
-				if (newNode == null)
+				if (newNode == null || newNode is YamlScalarNode)
 				{
-					rootNode = rootNode.CreateKey(keys[index]);
+					// Nothing to remove below a missing or scalar node.
+					if (value == null)
+						return;
+					// Create the container in place of a missing node or scalar, typed for the next key.
+					newNode = rootNode.CreateKey(keys[index], YamlPath.ContainerTypeFor(keys[index], keys[index + 1]));
 				}
-				else if (newNode is YamlScalarNode)
-				{
-					YamlScalarNode scalarNode = newNode as YamlScalarNode;
-					rootNode.Remove(keys[index]);
-					rootNode = rootNode.CreateKey(keys[index]);
-				}
-				else
-				{
-					rootNode = newNode;
-				}
+				rootNode = newNode;
 			}
-			YamlNode tempNode = rootNode.NodeByKey(keys[keys.Length - 1]);
 			if (value == null)
-			{
 				rootNode.Remove(keys[keys.Length - 1]);
-				return;
-			}
-			if (tempNode != null)
-			{
-				if (rootNode is YamlSequenceNode tempSequenceNode)
-				{
-					tempSequenceNode.Put(YamlPath.GetIndexByKey(keys[keys.Length - 1]).ToString(), value);
-					return;
-				}
-				if (tempNode is YamlScalarNode tempScalardNode)
-				{
-					tempScalardNode.Value = value.ToString();
-					return;
-				}
-				else if (tempNode is YamlSequenceNode)
-				{
-					rootNode.Put(keys[keys.Length - 1], value);
-					return;
-				}
-				else
-				{
-					rootNode.CreateKey(keys[keys.Length - 1]);
-					rootNode.Put(keys[keys.Length - 1], value);
-					return;
-				}
-			}
 			else
-			{
-				rootNode.CreateKey(keys[keys.Length - 1]);
 				rootNode.Put(keys[keys.Length - 1], value);
-			}
 		}
 	}
 }
