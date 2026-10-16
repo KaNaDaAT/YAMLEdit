@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "YAMLEdit", "YAMLEdit.csproj
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "YAMLTest", "..\YAMLTest\YAMLTest.csproj", "{D2B9A881-90C8-456A-B32B-D52552503339}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "YAMLEdit.Tests", "YAMLEdit.Tests\YAMLEdit.Tests.csproj", "{5FCA19D8-B739-49F8-92D6-E9CE2AF54DC3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{D2B9A881-90C8-456A-B32B-D52552503339}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D2B9A881-90C8-456A-B32B-D52552503339}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D2B9A881-90C8-456A-B32B-D52552503339}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5FCA19D8-B739-49F8-92D6-E9CE2AF54DC3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5FCA19D8-B739-49F8-92D6-E9CE2AF54DC3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5FCA19D8-B739-49F8-92D6-E9CE2AF54DC3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5FCA19D8-B739-49F8-92D6-E9CE2AF54DC3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

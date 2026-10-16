@@ -120,7 +120,7 @@ Console.WriteLine(config.GetNode("Rooms.Special.:0"));
 Console.WriteLine(config.GetNode("Rooms.Special.:1"));
 // Output: [ DEEP0, DEEP1 ]
 Console.WriteLine(config.GetNode("Rooms.Special.:2"));
-// Output: NORMAL2
+// Output: NORMAL1
 ```
 
 **Accessing deep sequences**
@@ -138,9 +138,9 @@ Console.WriteLine(config.GetNode("Rooms.Special.:1:.:0:.:1"));
 // Output: DEEP3
 ```
 
-- `Rooms.:0`: Accesses the first element of the "Rooms" sequence using dot notation.
-- `Rooms.Special.:0.:0`: Accesses the first element of the "Special" sequence within "Rooms," then accesses the first element of the nested sequence. The colon notation is used to indicate sequence elements.
-- The difference between `:0:` and `:0` is that `:0:` represents accessing the element in a sequence, while `:0` represents accessing a property or element with the name "0" directly. In the context of this example, `.:0` is used to access elements in the "Rooms" sequence, while `.:0:` is used for nested sequences within "Special."
+- `:N` is the item at position N, counting every item. `Rooms.Special.:1` is `[ DEEP0, DEEP1 ]`.
+- `:N:` is the Nth item that is itself a sequence, skipping all other items. `Rooms.Special.:1:` is `[ [ DEEP2, DEEP3 ] ]`, because it's the second sequence inside "Special".
+- A plain name inside a sequence finds an item with that value (`Rooms.ROOM0`), or an item whose first key has that name (`Rooms.Special`).
 
 Example 3  - Rooms YAML File
 
@@ -159,6 +159,21 @@ Rooms:
 - ROOM2
 ```
 
+### **Example 4: Setting values**
+
+`Set` replaces whatever `GetNode` would find at that path, in the same spot. If nothing is there yet, it adds it.
+
+```c#
+config.Set("Rooms.:0", "LOBBY");        // replaces ROOM0
+config.Set("Rooms.ROOM1", null);        // removes ROOM1
+config.Set("Rooms.Garden.Size", 7);     // adds "- Garden: { Size: 7 }" to Rooms
+config.Set("Person.Pets.:0.Name", "Rex"); // ":0" creates Pets as a sequence
+```
+
+- Missing parents are created on the way. They become a sequence when the next key is `:N` or `:N:`, otherwise a mapping.
+- A scalar in the middle of a path is turned into a mapping or sequence so the path can continue.
+- An index equal to the length of the sequence appends. An index further past the end throws an `ArgumentOutOfRangeException`.
+
 # 
 
 ## API Reference
@@ -167,15 +182,21 @@ Rooms:
 
 **Constructor:** `new ConfigFile(string filePath, bool autoLoad = true)`: Creates a new instance of the ConfigFile class with the specified YAML file path.
 
-**Set Method:** `Set(string key, object value)`: Sets the value for the specified key in the YAML file.
+**Set Method:** `Set(string key, object value)`: Sets the value for the specified key in the YAML file. Setting `null` removes the key.
 
-**Get Method:** `Get<T>(string key)`: Retrieves the value for the specified key from the YAML file, ensuring type safety.
+**Get Method:** `Get<T>(string key)`: Retrieves the value for the specified key from the YAML file, ensuring type safety. Throws a `KeyNotFoundException` if nothing is there.
 
-**Save Method:** `Save()`: Writes the changes back to the YAML file.
+**Save Method:** `Save()`: Writes the changes back to the YAML file, creating it if needed.
 
-**Load Method:** `Load()`: Loads the YAML file.
+**Load Method:** `Load()`: Loads the YAML file. A missing or empty file starts as an empty document, and `Loaded` stays `false`.
 
-**Node Method:** `GetNode(string key)`: Retrieves the YAMLNode for the specified key from the YAML file.
+**Node Method:** `GetNode(string key)`: Retrieves the YAMLNode for the specified key from the YAML file, or `null` if nothing is there.
+
+## Running the tests
+
+```
+dotnet test YAMLEdit.Tests/YAMLEdit.Tests.csproj
+```
 
 ## Contribution
 
