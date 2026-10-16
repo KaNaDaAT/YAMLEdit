@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
 using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -20,6 +21,7 @@ namespace YAMLEdit {
 		{
 			FILE_PATH = path;
 			Loaded = false;
+			yaml = new YamlDocument(new YamlMappingNode());
 			deserializer = new DeserializerBuilder().WithNamingConvention(CamelCaseNamingConvention.Instance).Build();
 			if (autoLoad)
 				Load();
@@ -27,19 +29,19 @@ namespace YAMLEdit {
 
 		public void Load()
 		{
+			// A missing or empty file starts as an empty document, so Set() and Save() can create it
+			yaml = new YamlDocument(new YamlMappingNode());
+			Loaded = false;
+			if (!File.Exists(FILE_PATH))
+				return;
 			using (StreamReader reader = new StreamReader(FILE_PATH))
 			{
 				YamlStream stream = new YamlStream();
 				stream.Load(reader);
-				if (stream != null && stream.Documents.Count != 0)
+				if (stream.Documents.Count != 0)
 				{
 					yaml = stream.Documents[0];
 					Loaded = true;
-				}
-				else
-				{
-					yaml = null;
-					Loaded = false;
 				}
 			}
 		}
@@ -52,8 +54,6 @@ namespace YAMLEdit {
 
 		public void Save()
 		{
-			if (!File.Exists(FILE_PATH))
-				File.Create(FILE_PATH);
 			using (TextWriter writer = File.CreateText(FILE_PATH))
 				new YamlStream(yaml).Save(writer, false);
 		}
@@ -83,6 +83,8 @@ namespace YAMLEdit {
 		public T Get<T>(string path)
 		{
 			YamlNode node = GetNode(path);
+			if (node == null)
+				throw new KeyNotFoundException(string.Format("Nothing found at '{0}'", path));
 			YamlStream stream = new YamlStream(new YamlDocument(node));
 			return deserializer.Deserialize<T>(
 				new EventStreamParserAdapter(
@@ -93,65 +95,17 @@ namespace YAMLEdit {
 
 		public void Set(string path, object value)
 		{
-			path = path.TrimEnd(':');
 			YamlNode rootNode = yaml.RootNode;
-			if (rootNode == null)
-				return;
 			string[] keys = path.Split('.');
-			int index = 0;
-			for (index = 0; index < keys.Length - 1; index++)
+			for (int index = 0; index < keys.Length - 1; index++)
 			{
-				YamlNode newNode = rootNode.NodeByKey(keys[index]);
-				if (newNode == null)
-				{
-					rootNode = rootNode.CreateKey(keys[index]);
-				}
-				else if (newNode is YamlScalarNode)
-				{
-					YamlScalarNode scalarNode = newNode as YamlScalarNode;
-					rootNode.Remove(keys[index]);
-					rootNode = rootNode.CreateKey(keys[index]);
-				}
-				else
-				{
-					rootNode = newNode;
-				}
+				rootNode = rootNode.GetOrCreateContainer(keys[index], keys[index + 1]);
 			}
-			YamlNode tempNode = rootNode.NodeByKey(keys[keys.Length - 1]);
+			// Replaces whatever GetNode(path) finds, in place, or adds it if nothing is there
 			if (value == null)
-			{
 				rootNode.Remove(keys[keys.Length - 1]);
-				return;
-			}
-			if (tempNode != null)
-			{
-				if (rootNode is YamlSequenceNode tempSequenceNode)
-				{
-					tempSequenceNode.Put(YamlPath.GetIndexByKey(keys[keys.Length - 1]).ToString(), value);
-					return;
-				}
-				if (tempNode is YamlScalarNode tempScalardNode)
-				{
-					tempScalardNode.Value = value.ToString();
-					return;
-				}
-				else if (tempNode is YamlSequenceNode)
-				{
-					rootNode.Put(keys[keys.Length - 1], value);
-					return;
-				}
-				else
-				{
-					rootNode.CreateKey(keys[keys.Length - 1]);
-					rootNode.Put(keys[keys.Length - 1], value);
-					return;
-				}
-			}
 			else
-			{
-				rootNode.CreateKey(keys[keys.Length - 1]);
 				rootNode.Put(keys[keys.Length - 1], value);
-			}
 		}
 	}
 }

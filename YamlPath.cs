@@ -34,6 +34,47 @@ namespace YAMLEdit {
 
 		public static YamlNode NodeByKey(this YamlNode node, string key)
 		{
+			Slot slot = FindSlot(node, key);
+			return slot == null ? null : slot.Value;
+		}
+
+		// Where a child lives in its parent: a mapping entry or a position in a sequence.
+		// A sequence item found by its first key ("- Special: ...") lives in that item's mapping.
+		private class Slot
+		{
+			public YamlSequenceNode Sequence;
+			public int Index;
+			public YamlMappingNode Mapping;
+			public YamlNode Key;
+
+			public YamlNode Value
+			{
+				get { return Mapping != null ? Mapping.Children[Key] : Sequence.Children[Index]; }
+				set
+				{
+					if (Mapping != null)
+						Mapping.Children[Key] = value;
+					else
+						Sequence.Children[Index] = value;
+				}
+			}
+
+			public void Remove()
+			{
+				if (Mapping == null)
+				{
+					Sequence.Children.RemoveAt(Index);
+					return;
+				}
+				Mapping.Children.Remove(Key);
+				// Drop the whole "- Key: ..." item once nothing is left in it
+				if (Sequence != null && Mapping.Children.Count == 0)
+					Sequence.Children.RemoveAt(Index);
+			}
+		}
+
+		private static Slot FindSlot(YamlNode node, string key)
+		{
 			if (node == null)
 				throw new ArgumentNullException(string.Format("Unsupported node type: {0} for 'node'", null));
 
@@ -50,7 +91,7 @@ namespace YAMLEdit {
 				{
 					if (entry.Key.ToString().Equals(key))
 					{
-						return entry.Value;
+						return new Slot { Mapping = mapping, Key = entry.Key };
 					}
 				}
 				return null;
@@ -59,43 +100,33 @@ namespace YAMLEdit {
 			YamlSequenceNode sequence = node as YamlSequenceNode;
 			if (sequence != null)
 			{
+				IList<YamlNode> children = sequence.Children;
 				int index = GetIndexByKey(key);
-
-				IEnumerator<YamlNode> enumerator = sequence.GetEnumerator();
 				if (IsSequenceInception(key))
 				{
-					return GetSequenceInSequence(index, enumerator);
+					index = IndexOfNestedSequence(sequence, index);
+					return index == -1 ? null : new Slot { Sequence = sequence, Index = index };
 				}
 				else if (index != -1)
 				{
-					return GetSequence(index, enumerator);
+					if (index < 0 || index >= children.Count)
+						return null;
+					return new Slot { Sequence = sequence, Index = index };
 				}
-				else
+
+				for (int i = 0; i < children.Count; i++)
 				{
-					for (int i = 0; enumerator.MoveNext(); i++)
+					YamlScalarNode keyNode = children[i] as YamlScalarNode;
+					if (keyNode != null && string.Equals(keyNode.Value, key))
 					{
-						YamlNode current = enumerator.Current;
-						if (current == null)
-							break;
-
-						YamlScalarNode keyNode = current as YamlScalarNode;
-						if (keyNode != null && keyNode.Value.ToString().Equals(key))
-						{
-							return current;
-						}
-
-						YamlMappingNode mapNode = current as YamlMappingNode;
-						if (mapNode != null && mapNode.Children.Count > 0)
-						{
-							string mapKey = (mapNode.Children[0].Key as YamlScalarNode).Value.ToString();
-							if (mapKey.Equals(key))
-							{
-								current = mapNode.Children[0].Value;
-								return current;
-							}
-						}
+						return new Slot { Sequence = sequence, Index = i };
 					}
 
+					YamlMappingNode mapNode = children[i] as YamlMappingNode;
+					if (mapNode != null && mapNode.Children.Count > 0 && mapNode.Children[0].Key.ToString().Equals(key))
+					{
+						return new Slot { Sequence = sequence, Index = i, Mapping = mapNode, Key = mapNode.Children[0].Key };
+					}
 				}
 				return null;
 			}
@@ -126,38 +157,26 @@ namespace YAMLEdit {
 			return key.StartsWith(":") && key.EndsWith(":");
 		}
 
-		private static YamlNode GetSequenceInSequence(int index, IEnumerator<YamlNode> enumerator)
+		// ":N" and ":N:" always point into a sequence
+		private static bool IsIndexKey(string key)
+		{
+			return key.StartsWith(":") && GetIndexByKey(key) != -1;
+		}
+
+		// Position of the Nth item that is itself a sequence, or -1
+		private static int IndexOfNestedSequence(YamlSequenceNode sequence, int index)
 		{
 			int sequenceIndex = 0;
-			for (int i = 0; enumerator.MoveNext(); i++)
+			for (int i = 0; i < sequence.Children.Count; i++)
 			{
-				YamlNode current = enumerator.Current;
-				if (current == null)
-					break;
-				YamlSequenceNode sequence = current as YamlSequenceNode;
-				if (sequence != null)
+				if (sequence.Children[i] is YamlSequenceNode)
 				{
 					if (index == sequenceIndex)
-						return current;
+						return i;
 					sequenceIndex++;
 				}
 			}
-			return null;
-		}
-
-		private static YamlNode GetSequence(int index, IEnumerator<YamlNode> enumerator)
-		{
-			for (int i = 0; enumerator.MoveNext(); i++)
-			{
-				YamlNode current = enumerator.Current;
-				if (current == null)
-					break;
-				if (index == i)
-				{
-					return current;
-				}
-			}
-			return null;
+			return -1;
 		}
 
 
@@ -172,6 +191,52 @@ namespace YAMLEdit {
 
 		public static YamlNode CreateKey(this YamlNode node, string key, YamlNodeType type)
 		{
+			YamlNode nodeB;
+			switch (type)
+			{
+				case YamlNodeType.Mapping:
+					nodeB = new YamlMappingNode();
+					break;
+				case YamlNodeType.Scalar:
+					nodeB = new YamlScalarNode();
+					break;
+				case YamlNodeType.Sequence:
+					nodeB = new YamlSequenceNode();
+					break;
+				default:
+					throw new NotSupportedException(string.Format("Unsupported node type: {0}", type.ToString()));
+			}
+			AddChild(node, key, nodeB);
+			return nodeB;
+		}
+
+		// Returns the node at key so a path can continue into it. A missing node, or a scalar
+		// (which can't hold keys), is replaced in place by an empty mapping or sequence.
+		internal static YamlNode GetOrCreateContainer(this YamlNode node, string key, string nextKey)
+		{
+			Slot slot = FindSlot(node, key);
+			if (slot != null && !(slot.Value is YamlScalarNode))
+				return slot.Value;
+
+			// ":N:" in a sequence is a nested sequence, and a ":N" index needs a sequence to point into
+			YamlNode container = (node is YamlSequenceNode && IsSequenceInception(key)) || IsIndexKey(nextKey)
+				? new YamlSequenceNode()
+				: new YamlMappingNode();
+
+			if (slot == null)
+				AddChild(node, key, container);
+			// A scalar item matched by name ("- ROOM0") becomes "- ROOM0: ..." so the path still finds it
+			else if (slot.Mapping == null && GetIndexByKey(key) == -1)
+				slot.Value = new YamlMappingNode(new YamlScalarNode(key), container);
+			else
+				slot.Value = container;
+			return container;
+		}
+
+		// Adds a child under a key that doesn't exist yet. In a sequence an index
+		// appends at the end, and a name appends "- key: child" so it can be found by name.
+		private static void AddChild(YamlNode node, string key, YamlNode child)
+		{
 			if (node == null)
 				throw new ArgumentNullException(string.Format("Unsupported node type: {0} for 'node'", null));
 
@@ -184,125 +249,49 @@ namespace YAMLEdit {
 			YamlMappingNode mapping = node as YamlMappingNode;
 			if (mapping != null)
 			{
-				YamlNode nodeB;
-				switch (type)
-				{
-					case YamlNodeType.Mapping:
-						nodeB = new YamlMappingNode();
-						mapping.Add(new YamlScalarNode(key), nodeB);
-						break;
-					case YamlNodeType.Scalar:
-						nodeB = new YamlScalarNode();
-						mapping.Add(new YamlScalarNode(key), nodeB);
-						break;
-					case YamlNodeType.Sequence:
-						nodeB = new YamlSequenceNode(key);
-						mapping.Add(new YamlScalarNode(key), nodeB);
-						break;
-					default:
-						throw new NotSupportedException(string.Format("Unsupported node type: {0}", type.ToString()));
-				}
-				return nodeB;
+				mapping.Add(new YamlScalarNode(key), child);
+				return;
 			}
 
 			YamlSequenceNode sequence = node as YamlSequenceNode;
 			if (sequence != null)
 			{
-				YamlNode nodeB;
-				switch (type)
+				int index = GetIndexByKey(key);
+				if (index == -1)
 				{
-					case YamlNodeType.Mapping:
-						nodeB = new YamlMappingNode();
-						sequence.Add(nodeB);
-						break;
-					case YamlNodeType.Scalar:
-						nodeB = new YamlScalarNode();
-						sequence.Add(nodeB);
-						break;
-					case YamlNodeType.Sequence:
-						nodeB = new YamlSequenceNode(key);
-						sequence.Add(nodeB);
-						break;
-					default:
-						throw new NotSupportedException(string.Format("Unsupported node type: {0}", type.ToString()));
+					sequence.Add(new YamlMappingNode(new YamlScalarNode(key), child));
+					return;
 				}
-				return nodeB;
+				int count = IsSequenceInception(key)
+					? sequence.Children.Count(c => c is YamlSequenceNode)
+					: sequence.Children.Count;
+				if (index != count)
+					throw new ArgumentOutOfRangeException(nameof(key), string.Format("Index {0} is past the end of the sequence ({1} items)", index, count));
+				sequence.Add(child);
+				return;
 			}
-
-			return null;
+			throw new NotSupportedException(string.Format("Unsupported node type: {0}", node.GetType().Name));
 		}
 
 
 		public static void Remove(this YamlNode node, string key)
 		{
-			if (node == null)
-				throw new ArgumentNullException(string.Format("Unsupported node type: {0} for 'node'", null));
-
-			YamlScalarNode scalar = node as YamlScalarNode;
-			if (scalar != null)
-			{
-				throw new ArgumentException(string.Format("Node of type {0} cannot have a key", node.GetType().Name));
-			}
-
-			YamlMappingNode mapping = node as YamlMappingNode;
-			if (mapping != null)
-			{
-				mapping.Children.Remove(key);
-			}
-
-			YamlSequenceNode sequence = node as YamlSequenceNode;
-			if (sequence != null)
-			{
-				sequence.Children.Remove(key);
-			}
+			Slot slot = FindSlot(node, key);
+			if (slot != null)
+				slot.Remove();
 		}
 
 		public static void Put(this YamlNode node, string key, object value)
 		{
-			if (node == null)
-				throw new ArgumentNullException(string.Format("Unsupported node type: {0} for 'node'", null));
 			if (value == null)
 				throw new ArgumentNullException(string.Format("Value is {0} use the 'Remove()' function instead", null));
 
-			YamlScalarNode scalar = node as YamlScalarNode;
-			if (scalar != null)
-			{
-				throw new ArgumentException(string.Format("Node of type {0} cannot have a key", node.GetType().Name));
-			}
-
-			YamlNode valueNode = node.NodeByKey(key);
-
-			YamlMappingNode mapping = node as YamlMappingNode;
-			if (mapping != null && mapping.Children.Count > 0)
-			{
-				if (valueNode == null)
-				{
-					mapping.Children.Add(
-						new YamlScalarNode(key),
-						ConvertValueToYaml(value)
-					);
-				}
-				else
-				{
-					mapping.Children[key] = ConvertValueToYaml(value);
-				}
-			}
-
-			YamlSequenceNode sequence = node as YamlSequenceNode;
-			if (sequence != null)
-			{
-				if (valueNode == null)
-				{
-					sequence.Children.Add(
-						ConvertValueToYaml(value)
-					);
-				}
-				else
-				{
-					int index = sequence.Children.ToList().FindIndex(y => ReferenceEquals(y, valueNode));
-					sequence.Children[index] = ConvertValueToYaml(value);
-				}
-			}
+			YamlNode valueNode = ConvertValueToYaml(value);
+			Slot slot = FindSlot(node, key);
+			if (slot != null)
+				slot.Value = valueNode;
+			else
+				AddChild(node, key, valueNode);
 		}
 
 

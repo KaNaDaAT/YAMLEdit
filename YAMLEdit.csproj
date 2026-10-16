@@ -4,6 +4,8 @@
 		<OutputType>Library</OutputType>
 		<TargetFramework>net6.0</TargetFramework>
 		<LangVersion>10</LangVersion>
+		<!-- The tests have their own project -->
+		<DefaultItemExcludes>$(DefaultItemExcludes);YAMLEdit.Tests/**</DefaultItemExcludes>
 	</PropertyGroup>
   <ItemGroup>
     <PackageReference Include="YamlDotNet" Version="11.0.1" />
