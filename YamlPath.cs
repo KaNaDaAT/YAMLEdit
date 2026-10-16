@@ -53,10 +53,21 @@ namespace YAMLEdit {
 				set
 				{
 					if (Mapping != null)
-						Mapping.Children[Key] = value;
+						Mapping.Children[StoredKey()] = value;
 					else
 						Sequence.Children[Index] = value;
 				}
+			}
+
+			// The key node as it is in the file, so replacing a value keeps the key's quotes
+			private YamlNode StoredKey()
+			{
+				foreach (KeyValuePair<YamlNode, YamlNode> entry in Mapping.Children)
+				{
+					if (entry.Key.Equals(Key))
+						return entry.Key;
+				}
+				return Key;
 			}
 
 			public void Remove()
@@ -87,6 +98,12 @@ namespace YAMLEdit {
 			YamlMappingNode mapping = node as YamlMappingNode;
 			if (mapping != null)
 			{
+				// Plain keys are found with a hash lookup, which keeps big mappings fast.
+				// Tagged or complex keys fall back to comparing every key's text.
+				YamlScalarNode plainKey = new YamlScalarNode(key);
+				if (mapping.Children.ContainsKey(plainKey))
+					return new Slot { Mapping = mapping, Key = plainKey };
+
 				foreach (KeyValuePair<YamlNode, YamlNode> entry in mapping.Children)
 				{
 					if (entry.Key.ToString().Equals(key))
@@ -295,9 +312,12 @@ namespace YAMLEdit {
 		}
 
 
+		// Building a serializer is expensive, so every call shares one
+		private static readonly ISerializer serializer = new Serializer();
+
 		public static YamlNode ConvertValueToYaml(object value)
 		{
-			TextReader reader = new StringReader(new Serializer().Serialize(value));
+			TextReader reader = new StringReader(serializer.Serialize(value));
 			YamlStream stream = new YamlStream();
 			stream.Load(reader);
 			YamlDocument yaml = stream.Documents[0];
