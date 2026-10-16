@@ -203,6 +203,25 @@ namespace YAMLEdit.Tests
 		}
 
 		[Fact]
+		public void Set_KeepsTheQuotesOfAnExistingKey()
+		{
+			ConfigFile config = Load("\"Name\": John\n");
+			config.Set("Name", "Jane");
+			config.Save();
+
+			Assert.Contains("\"Name\": Jane", File.ReadAllText(config.FILE_PATH));
+		}
+
+		[Fact]
+		public void GetNode_FindsTaggedKeys()
+		{
+			ConfigFile config = Load("!!str 1: one\nplain: two\n");
+
+			Assert.Equal("one", config.GetNode("1").ToString());
+			Assert.Equal("two", config.GetNode("plain").ToString());
+		}
+
+		[Fact]
 		public void Set_Null_RemovesAKey()
 		{
 			ConfigFile config = Load(Person);
