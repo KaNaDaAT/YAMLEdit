@@ -63,8 +63,6 @@ namespace YAMLEdit {
 
 		public void Write(string path) {
 			RemoveFirstLine();
-			if(!File.Exists(path))
-				File.Create(path);
 			StreamWriter writer = new StreamWriter(path);
 			writer.Write(content);
 			writer.Close();

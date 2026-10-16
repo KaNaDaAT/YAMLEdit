@@ -16,12 +16,12 @@ YAMLEdit is a lightweight library designed to simplify the reading and editing o
 UNDER DEVELOPMENT
 
 ```c#
-ConfigFile config = new ConfigFile(pathToYaml);
+ConfigFile config = new ConfigFile(pathToYaml); // the file may be missing or empty
 config.Set("Persons.1.Name", "KaNaDaAT");
 config.Set("Persons.1.Age", 21);
 config.Set("Persons.1.Age", 22); // Overwrite the value
 int age = config.Get<int>("Persons.1.Age"); // 22
-config.Save(); // actually writes the data
+config.Save(); // actually writes the data, creating the file if needed
 ```
 
 ## Paths/Keys
@@ -165,17 +165,19 @@ Rooms:
 
 ### ConfigFile Class
 
-**Constructor:** `new ConfigFile(string filePath, bool autoLoad = true)`: Creates a new instance of the ConfigFile class with the specified YAML file path.
+**Constructor:** `new ConfigFile(string filePath, bool autoLoad = true)`: Creates a new instance of the ConfigFile class with the specified YAML file path. When `autoLoad` is `true` (the default) it calls `Load()`, so a file that is missing or empty gives you an empty configuration rather than an exception.
+
+**Load Method:** `Load()`: Loads the YAML file. If the file (or its directory) does not exist, or the file holds no YAML document (it is empty, or contains only whitespace or comments), the configuration starts as an empty mapping and `Loaded` is `false`. A missing file is not created until `Save()` is called. Other errors, such as invalid YAML or missing read permission, are still thrown.
+
+**Loaded Property:** `Loaded`: `true` if the last `Load()` read a YAML document from the file; `false` if the file was missing or empty, or if nothing has been loaded yet.
 
 **Set Method:** `Set(string key, object value)`: Sets the value for the specified key in the YAML file.
 
-**Get Method:** `Get<T>(string key)`: Retrieves the value for the specified key from the YAML file, ensuring type safety.
+**Get Method:** `Get<T>(string key)`: Retrieves the value for the specified key from the YAML file, ensuring type safety. If there is no value at that path, it throws a `KeyNotFoundException` whose message names the path. To check whether a key exists first, use `GetNode(key) != null`.
 
-**Save Method:** `Save()`: Writes the changes back to the YAML file.
+**Save Method:** `Save()`: Writes the changes back to the YAML file, replacing its contents. If the file does not exist, `Save()` creates it, but its directory must already exist.
 
-**Load Method:** `Load()`: Loads the YAML file.
-
-**Node Method:** `GetNode(string key)`: Retrieves the YAMLNode for the specified key from the YAML file.
+**Node Method:** `GetNode(string key)`: Retrieves the YAMLNode for the specified key from the YAML file, or `null` if the key does not exist.
 
 ## Contribution
 

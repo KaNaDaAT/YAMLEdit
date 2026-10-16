@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
 using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -27,20 +28,25 @@ namespace YAMLEdit {
 
 		public void Load()
 		{
-			using (StreamReader reader = new StreamReader(FILE_PATH))
+			YamlStream stream = new YamlStream();
+			try
 			{
-				YamlStream stream = new YamlStream();
-				stream.Load(reader);
-				if (stream != null && stream.Documents.Count != 0)
-				{
-					yaml = stream.Documents[0];
-					Loaded = true;
-				}
-				else
-				{
-					yaml = null;
-					Loaded = false;
-				}
+				using (StreamReader reader = new StreamReader(FILE_PATH))
+					stream.Load(reader);
+			}
+			catch (IOException e) when (e is FileNotFoundException || e is DirectoryNotFoundException)
+			{
+				// A missing file is treated like an empty one, so Save() can create it.
+			}
+			if (stream.Documents.Count != 0)
+			{
+				yaml = stream.Documents[0];
+				Loaded = true;
+			}
+			else
+			{
+				yaml = new YamlDocument(new YamlMappingNode());
+				Loaded = false;
 			}
 		}
 
@@ -52,8 +58,6 @@ namespace YAMLEdit {
 
 		public void Save()
 		{
-			if (!File.Exists(FILE_PATH))
-				File.Create(FILE_PATH);
 			using (TextWriter writer = File.CreateText(FILE_PATH))
 				new YamlStream(yaml).Save(writer, false);
 		}
@@ -83,6 +87,8 @@ namespace YAMLEdit {
 		public T Get<T>(string path)
 		{
 			YamlNode node = GetNode(path);
+			if (node == null)
+				throw new KeyNotFoundException(string.Format("No value found at path '{0}'", path));
 			YamlStream stream = new YamlStream(new YamlDocument(node));
 			return deserializer.Deserialize<T>(
 				new EventStreamParserAdapter(
