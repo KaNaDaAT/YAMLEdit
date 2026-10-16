@@ -8,7 +8,7 @@
 		<DefaultItemExcludes>$(DefaultItemExcludes);YAMLEdit.Tests/**</DefaultItemExcludes>
 	</PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="YamlDotNet" Version="11.0.1" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
 
 </Project>
